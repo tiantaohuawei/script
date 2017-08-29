@@ -1,0 +1,61 @@
+#!/usr/bin/python3
+import os
+import pexpect
+import time
+ip = '192.168.1.101'
+password = 'pass'
+'''
+/* -------------------------------------------------------------
+ * reboot target device and connect to target by ipmitool
+ * ------------------------------------------------------------- */
+'''
+os.system('ipmitool -H %s -I lanplus -U root -P %s sol deactivate' % (ip, password))
+os.system('ipmitool -H %s -I lanplus -U root -P %s chassis power reset' % (ip, password))
+child = pexpect.spawn('ipmitool -H %s -I lanplus -U root -P %s sol activate' % (ip, password))
+'''
+/* -------------------------------------------------------------
+ * wait "Press any other key in .* seconds to stop automatical booting", enter to uefi
+ * ------------------------------------------------------------- */
+'''
+index = child.expect(['Press any other key in .* seconds to stop automatical booting', pexpect.EOF, pexpect.TIMEOUT])
+while (index != 0):
+ index = child.expect(['Press any other key in .* seconds to stop automatical booting', pexpect.EOF, pexpect.TIMEOUT])
+child.sendline("")
+'''
+/* -------------------------------------------------------------
+ * enter into Boot Manager
+ * menu entry: Boot Manager、Device Manager、Boot Maintenance Manager
+ * ------------------------------------------------------------- */
+'''
+Boot_Manager = 'Boot Manager'
+index = child.expect(['\\x1b\[0m\\x1b\[37m\\x1b\[40m.*%s\\x1b\[0m\\x1b\[30m\\x1b\[47m' % (Boot_Manager), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+while (index != 0):
+        child.sendline("v")
+        index = child.expect(['\\x1b\[0m\\x1b\[37m\\x1b\[40m.*%s\\x1b\[0m\\x1b\[30m\\x1b\[47m' % (Boot_Manager), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+time.sleep(1)
+child.sendline('\r\n')
+'''
+/* -------------------------------------------------------------
+ * enter to Boot Manager -> EFI Network 2
+ * ------------------------------------------------------------- */
+'''
+efinetwork2 = 'EFI Network 2'
+index = child.expect(['\\x1b\[0m\\x1b\[37m\\x1b\[40m.*%s\\x1b\[0m\\x1b\[30m\\x1b\[47m.*' % (efinetwork2), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+while (index != 0):
+ child.sendline("v")
+ index = child.expect(['\\x1b\[0m\\x1b\[37m\\x1b\[40m.*%s\\x1b\[0m\\x1b\[30m\\x1b\[47m.*' % (efinetwork2), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+child.sendline('\r\n')
+'''
+/* -------------------------------------------------------------
+ * select and enter to grub entry "Startup Estuary"
+ * ------------------------------------------------------------- */
+'''
+startup = 'Startup Estuary'
+child.expect('Press .* to edit the selected item')
+index = child.expect(['\\x1b\[30m\\x1b\[47m.*%s.*\\x1b\[0m\\x1b\[37m' % (startup), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+while (index != 0):
+ child.sendline('v')
+ index = child.expect(['\\x1b\[30m\\x1b\[47m.*%s.*\\x1b\[0m\\x1b\[37m' % (startup), pexpect.EOF, pexpect.TIMEOUT], timeout = 1)
+child.sendline('\r\n')
+child.interact()
+
