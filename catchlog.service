@@ -1,0 +1,12 @@
+[Uint]
+
+Description=catch log
+
+[Service]
+ExecStart=/bin/sh /home/catchlog.sh
+
+[Install]
+WantedBy=multi-user.target
+Requires=ssh.service
+After=ssh.service
+
