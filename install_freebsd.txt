@@ -1,0 +1,51 @@
+我们在FreeBSD-12.1-RELEASE-arm64-aarch64.qcow2上配置网络没有成功，所以按照如下步骤重新装了一个freebsd13版本的，网络可以访问外网。
+
+1.Create the main disk image for the VM and a much smaller image to hold the EFI variable store.
+
+qemu-img create -f qcow2 freebsd13.img 128G
+
+
+4.Install freebsd in qemu(You need to download a freebsd.img(FreeBSD-13.0-CURRENT-arm64-aarch64-20191018-r353709-memstick.img) from freebsd wesite by yourself)
+
+a)配置host网络添加网桥，参考如下脚本br0.sh：
+#!/bin/bash
+
+ifconfig br0 down
+brctl delbr br0
+brctl addbr br0
+brctl addif br0 $1
+ifconfig $1 0.0.0.0
+ifconfig br0 up
+dhclient br0
+
+如，执行sudo br0.sh eth0
+
+b)在当前执行命令目录下编写如下脚本qemu-ifup.sh：
+#!/bin/sh
+
+set -x
+switch=br0
+if [ -n "$1" ];then
+	ip tuntap add $1 mode tap user `whoami`
+	ip link set $1 up
+	sleep 0.5s
+	ip link set $1 master $switch
+	exit 0
+else
+	echo "Error: no interface specified"
+	exit 1
+fi
+
+
+
+
+
+c）执行安装系统命令
+
+sudo qemu-system-aarch64 -m 4096 -cpu host -enable-kvm -machine virt,gic_version=host -nographic -drive if=pflash,format=raw,file=./QEMU_EFI.img  -drive if=virtio,file=./FreeBSD-13.0-CURRENT-arm64-aarch64-20191018-r353709-memstick.img -drive if=virtio,file=./freebsd13.img -device virtio-net-device,netdev=network0,mac=52:54:00:4a:1e:d4 -netdev tap,id=network0,ifname=tap0,script=qemu-ifup.sh,downscript=no
+
+
+装过程我只使能ipv4的dhcp模式。成功后重启就可以用了。
+
+注意：以后再使用qemu，直接执行下面命令：
+qemu-system-aarch64 -m 4096 -cpu host -enable-kvm -machine virt,gic_version=host -nographic -drive if=pflash,format=raw,file=./images/QEMU_EFI.img  -drive if=virtio,file=./freebsd13.img -device virtio-net-device,netdev=network0,mac=52:54:01:4a:1e:d4 -netdev tap,id=network0,ifname=tap0,script=qemu-ifup.sh,downscript=no
